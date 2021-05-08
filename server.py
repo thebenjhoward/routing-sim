@@ -52,7 +52,7 @@ def regen():
         rtables.append(routing_table)
         dtables.append(dijkstra_table)
 
-    for rem_id in removed:
+    for rem_id in sorted(removed):
         ntables.insert(rem_id, "Error in retrieving new table")
         rtables.insert(rem_id, "Error in retrieving new table")
         dtables.insert(rem_id, "Error in retrieving new table")
