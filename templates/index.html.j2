@@ -1,0 +1,128 @@
+<html>
+<head>
+    <script type="text/javascript" 
+        src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="{{url_for('static', filename='regen-ospf.js')}}"></script>
+    <style type="text/css">
+        body {
+            font-family: arial, sans-serif
+        }
+        #mynetwork {
+            position: fixed;
+            left: 0px;
+            top: 0px;
+            bottom: 0px;
+            right: 50%;
+            min-height: 100vh;
+            border: 1px solid red;
+            margin: 0px;
+        }
+        aside {
+            position: absolute;
+            left: 50%;
+            padding: 1em;
+        }
+        th, td {
+            padding: 5px;
+            border: 1px solid black;
+            margin: 0px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="mynetwork"></div>
+    <aside id="mynodeinfo"> 
+        <h2 id="nodetitle">Select a Node for More Info</h2>
+        <div id="node_data"> 
+            <p id="node_subtitle"><i>select a node to see the routing table</i></p>
+            <div id="neighbors"></div>
+            <div id="routing"></div>
+            <div id="dijkstra"></div>
+            <div id="del"></div>
+        </div>
+    </aside>
+
+    <script type="text/javascript">
+        var nodes = new vis.DataSet( {{ nodes|tojson }} );
+
+        var edges = new vis.DataSet( {{ edges|tojson }} );
+
+        var container = document.getElementById('mynetwork');
+
+        var data = { nodes: nodes, edges: edges };
+        var options = {{ options|tojson }};
+
+        var neighbors = {{ neighbors|tojson }}
+        var routing = {{ routing | tojson }}
+        var dijkstra_tables = {{ dijkstra|tojson }};
+        
+        var removed = []
+
+        var network = new vis.Network(container, data, options);
+
+        network.on( 'click', function(properties) {
+            var ids = properties.nodes;
+            var clickedNodes = nodes.get(ids);
+            console.log('clicked nodes:', clickedNodes);
+
+            var title = document.getElementById('nodetitle');
+            var subtitle = document.getElementById('node_subtitle');
+            var ntable = document.getElementById('neighbors');
+            var rtable = document.getElementById('routing');
+            var dijkstra = document.getElementById('dijkstra');
+            var del = document.getElementById('del');
+
+            if(clickedNodes.length === 1) {
+                title.innerHTML = "Node: " + clickedNodes[0].label + ", IP/RID: " + clickedNodes[0].title;
+                if(ids[0] == nodes.getIds()[nodes.getIds().length - 1]) {
+                    subtitle.innerHTML = "<h4>OSPF DR</h4>"
+                } else if (ids[0] == nodes.getIds()[nodes.getIds().length - 2]) {
+                    subtitle.innerHTML = "<h4>OSPF BDR</h4>"
+                } else {
+                    subtitle.innerHTML = ""
+                }
+                ntable.innerHTML = neighbors[clickedNodes[0].id]
+                rtable.innerHTML = routing[clickedNodes[0].id]
+                dijkstra.innerHTML = dijkstra_tables[clickedNodes[0].id]
+
+                del.innerHTML = "<button id='del-button'>Delete Node</button>"
+                let button = document.getElementById('del-button');
+                button.addEventListener("click", () => {
+                    removed.push(clickedNodes[0].id)
+                    network.deleteSelected(); console.log("deleted", clickedNodes[0])
+                    
+                    let ids = nodes.getIds();
+                    nodes.update({id: ids[ids.length-1], color: {background: '#d9abff', 'highlight': {background: '#ead1ff'}}});
+                    nodes.update({id: ids[ids.length-2], color: {background: '#b3f6ff', 'highlight': {background: '#ccf9ff'}}});
+
+
+                    get_routes(nodes.get(ids), edges.get(edges.getIds()), removed).then(((data) => {
+                        neighbors = data.neighbor_tables
+                        routing = data.routing_tables
+                        dijkstra_tables = data.dtables
+                    }));
+                    network.selectNodes([]);
+
+                    title.innerHTML = "Select a Node for More Info";
+                    subtitle.innerHTML = "select a node to see the routing table";
+                    ntable.innerHTML = ""
+                    rtable.innerHTML = ""
+                    dijkstra.innerHTML = ""
+                    del.innerHTML = ""
+                });
+
+            } else {
+                title.innerHTML = "Select a Node for More Info";
+                subtitle.innerHTML = "select a node to see the routing table";
+                ntable.innerHTML = ""
+                rtable.innerHTML = ""
+                dijkstra.innerHTML = ""
+                del.innerHTML = ""
+            }
+        });
+
+        console.log(dijkstra_tables);
+    </script>
+</body>
+</html>
